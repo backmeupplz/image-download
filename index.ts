@@ -40,18 +40,18 @@ app.post("/upload", async (c) => {
       return c.text("Image file too large, maximum allowed size is 10MB", 400);
     }
 
-    // Convert the PNG image to AVIF using Sharp with lossless conversion for the best quality.
-    const avifBuffer = await sharp(imageBuffer)
-      .avif({ lossless: true })
+    // Convert/validate the image as PNG using Sharp.
+    const pngBuffer = await sharp(imageBuffer)
+      .png()
       .toBuffer();
 
-    // Compute the SHA-256 hash of the converted AVIF image.
-    const hash = crypto.createHash("sha256").update(avifBuffer).digest("hex");
+    // Compute the SHA-256 hash of the PNG image.
+    const hash = crypto.createHash("sha256").update(pngBuffer).digest("hex");
 
-    // Save the converted image as {hash}.avif in the images folder.
-    const filename = `${hash}.avif`;
+    // Save the PNG image as {hash}.png in the images folder.
+    const filename = `${hash}.png`;
     const filePath = `${imagesDir}/${filename}`;
-    Bun.write(filePath, avifBuffer);
+    Bun.write(filePath, pngBuffer);
 
     // Return the hash so the client can retrieve the image later.
     return c.json({ hash });
@@ -61,21 +61,21 @@ app.post("/upload", async (c) => {
   }
 });
 
-// GET /{hash}.avif endpoint: Serves the converted image.
+// GET /{hash}.png endpoint: Serves the PNG image.
 app.get("/:file", (c) => {
-  const file = c.req.param("file"); // file should be something like "abcdef123456.avif"
-  // Validate that the filename matches the pattern: hexhash + ".avif"
-  const match = file.match(/^([0-9a-f]+)\.avif$/);
+  const file = c.req.param("file"); // e.g. "abcdef123456.png"
+  // Validate that the filename matches the pattern: hexhash + ".png"
+  const match = file.match(/^([0-9a-f]+)\.png$/);
   if (!match) {
     return c.text("Invalid image URL", 400);
   }
   const hash = match[1];
-  const filePath = `${imagesDir}/${hash}.avif`;
+  const filePath = `${imagesDir}/${hash}.png`;
   try {
     const imageBuffer = readFileSync(filePath);
     return new Response(imageBuffer, {
       status: 200,
-      headers: { "Content-Type": "image/avif" },
+      headers: { "Content-Type": "image/png" },
     });
   } catch (err) {
     return c.text("Image not found", 404);
